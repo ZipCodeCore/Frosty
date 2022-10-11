@@ -43,7 +43,7 @@ public class Compiler {
                 return ";; num enter";
             }
             public String exit(Ast node, Ast parent) {
-                return "\t\tPUSH "+ node.value;
+                return "\t\tPUSH #"+ node.value;
             }
         },
         stringliteral {
