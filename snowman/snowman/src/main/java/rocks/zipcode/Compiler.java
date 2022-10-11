@@ -22,10 +22,41 @@ public class Compiler {
     }
 
     enum AstType {
-        program,
-        callexpression,
-        numberliteral,
-        stringliteral
+        program { // visitor funcs
+            public String enter(Ast node, Ast parent) {
+                return ";; Begin program code\n\t\tSTART";
+            }
+            public String exit(Ast node, Ast parent) {
+                return ";; Print top of stack\n\t\tPOP\n\t\tPRINT\n\t\tHALT";
+            }
+        },
+        callexpression {
+            public String enter(Ast node, Ast parent) {
+                return ";; call enter";
+            }
+            public String exit(Ast node, Ast parent) {
+                return "\t\tDO " + node.value.toUpperCase();
+            }
+        },
+        numberliteral {
+            public String enter(Ast node, Ast parent) {
+                return ";; num enter";
+            }
+            public String exit(Ast node, Ast parent) {
+                return "\t\tPUSH "+ node.value;
+            }
+        },
+        stringliteral {
+            public String enter(Ast node, Ast parent) {
+                return ";; string enter";
+            }
+            public String exit(Ast node, Ast parent) {
+                return ";; string exit";
+            }
+        };
+
+        abstract String enter(Ast node, Ast parent);
+        abstract String exit(Ast node, Ast parent);
     }
     class Ast {
         public AstType type;
@@ -49,7 +80,7 @@ public class Compiler {
             String output = codeGenerator(ast);
             return output;
             } catch (Exception e) {
-                System.err.println("Error in input: "+e);
+                System.err.println(";; Error in input: "+e);
             e.printStackTrace();
         }
         return null;
@@ -109,14 +140,14 @@ public class Compiler {
                 tokens.add(new Token(TokenType.name, value));
                 continue;
             }
-            throw new Exception("Illegal character in input.");
+            throw new Exception(";; Illegal character in input.");
         }
         return tokens;
     }
     
     private void printTokens(ArrayList<Token> tts) {
         for (Token t : tts) {
-            System.out.println(t.type+":"+t.value);
+            System.err.println(";; "+t.type+":"+t.value);
         }
     }
     private Ast parser(ArrayList<Token> tokens) {
@@ -133,8 +164,8 @@ public class Compiler {
     private Ast walk(Token token, Iterator<Token> tokens) {
         if (tokens.hasNext()) {
             token = tokens.next();
-            System.err.println("walk: 0 "+token.value);
-        } else System.err.println("EOF 0");
+            System.err.println(";; walk: 0 "+token.value);
+        } else System.err.println(";; EOF 0");
 
         //= tokens.get(idx);
 
@@ -147,8 +178,8 @@ public class Compiler {
         if (token.type == TokenType.paren) {
             if (tokens.hasNext()) {
                 token = tokens.next();
-                System.err.println("walk: 1 "+token.value);
-            } else System.err.println("EOF 1");
+                System.err.println(";; walk: 1 "+token.value);
+            } else System.err.println(";; EOF 1");
             Ast node = new Ast(AstType.callexpression, token.value);
 
             while (token.type != TokenType.thesis) {
@@ -162,20 +193,56 @@ public class Compiler {
             return null;
         }
 
-        System.err.println("UNKNOWN TOKEN..."+token.value);
+        System.err.println(";; UNKNOWN TOKEN..."+token.value);
         return null;
     }
 
+    private void traverseAndEmit(Ast ast) {
+        traverseNodeAndEmit(ast, null);
+    }
+
+    private void traverseList(ArrayList<Ast> list, Ast parent) {
+        for (Ast child : list) {
+            traverseNodeAndEmit(child, parent);
+        }
+    }
+
+    private void traverseNodeAndEmit(Ast node, Ast parent) {
+        emitCode(node.type.enter(node, parent));
+
+        if (node.type == AstType.program) {
+            traverseList(node.params, node);
+        }
+        if (node.type == AstType.callexpression) {
+            traverseList(node.params, node);
+        }
+        if (node.type == AstType.numberliteral) ;
+        if (node.type == AstType.stringliteral) ;
+
+        emitCode(node.type.exit(node, parent));
+    }
+
+    private void emitCode(String code) {
+        //System.err.println(code);
+        outputCode.append(code+"\n");
+    }
+
+    private StringBuilder outputCode; 
 
     private String codeGenerator(Ast ast) {
-        System.out.println(">>BEGIN");
+        // For debugging, print out the AST received.
+        System.err.println(";; BEGIN Ast Dump");
         printNode(ast);
-        System.out.println(">>END");
-        return null;
+        System.err.println(";; END Ast Dump");
+
+        // bad: using an instance varable to capture emitted code.
+        outputCode = new StringBuilder();
+        traverseAndEmit(ast);
+        return outputCode.toString();
     }
 
     private void printNode(Ast ast) {
-        System.out.println(ast.type.toString()+":"+ast.value);
+        System.err.println(";; "+ast.type.toString()+":"+ast.value);
         for (Ast e : ast.params) {
             printNode(e);
         }
